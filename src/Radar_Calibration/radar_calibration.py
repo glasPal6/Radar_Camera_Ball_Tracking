@@ -6,7 +6,7 @@ def radar_LS(targets, measurements):
     t = A[:2, 2]
     return A, R, t
 
-def radar_Kalman(targets, measurements, noise_m, noise_p=0.001):
+def radar_Kalman(targets, measurements, noise_m, noise_p=0):
     """
         targets = (no. of images in time, 3, no. of reflectors)
         measurements = (no. of images in time, 3, no. of reflectors)

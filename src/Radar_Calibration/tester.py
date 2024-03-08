@@ -12,8 +12,8 @@ if __name__ == "__main__":
     print(A)
     print()
 
-    cols = 10
-    times = 10
+    cols = 20
+    times = 20
     x = np.vstack([
         np.random.random((2, cols)),
         np.ones(cols)
