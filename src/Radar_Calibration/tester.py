@@ -34,3 +34,4 @@ if __name__ == "__main__":
 
     print(np.linalg.norm(A - estimate_A_K)**2)
     print(np.linalg.norm(A - estimate_A_LS)**2)
+    print()
