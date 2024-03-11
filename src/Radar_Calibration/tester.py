@@ -1,7 +1,7 @@
 import numpy as np
-from radar_calibration import radar_Kalman, radar_LS 
+from radar_calibration import data_extraction, radar_Kalman, radar_LS 
 
-if __name__ == "__main__":
+def test_algorithms():
     theta = 1
     t = np.array([10, -8])
     A = np.array([
@@ -35,3 +35,14 @@ if __name__ == "__main__":
     print(np.linalg.norm(A - estimate_A_K)**2)
     print(np.linalg.norm(A - estimate_A_LS)**2)
     print()
+
+def test_radar_calib():
+    data_path = "Calibration_Data/Test_2024_03_11/pymmw_2024-03-11_10-20-03.log"
+    gt_path = "Calibration_Data/Test_2024_03_11/"
+    config_path = "Calibration_Data/Test_2024_03_11/config_2024-03-11_10-20-06.json"
+    data_extraction(data_path, gt_path, config_path)
+
+if __name__ == "__main__":
+    # test_algorithms()
+    test_radar_calib()
+
