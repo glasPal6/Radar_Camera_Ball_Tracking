@@ -1,7 +1,6 @@
 import numpy as np
 import json
-import cv2 as cv
-import matplotlib as mpl
+from matplotlib.widgets import RectangleSelector
 import matplotlib.pyplot as plt
 import matplotlib.patches as pat
 import scipy.interpolate as spi
@@ -65,7 +64,6 @@ def radar_Kalman(targets, measurements, noise_m, noise_p=0):
     t = A[:2, 2]
     return A, R, t
 
-def plot_calibration_image(config, azimuth_data):
 def plot_calibration_image(config, azimuth_data, reflector_coordinates_path):
     # Extract config
     tx_azimuth_antennas = config['Azimuth antennas']
@@ -134,19 +132,46 @@ def get_radar_points(config, azimuth_data, reflector_coordinates_path):
     """
     Get the corner reflector points
     """
-    def onclick(event):
+    def line_select_callback(eclick, erelease):
+        'eclick and erelease are the press and release events'
+        x1, y1 = eclick.xdata, eclick.ydata
+        x2, y2 = erelease.xdata, erelease.ydata
+        rect = plt.Rectangle( (min(x1,x2),min(y1,y2)), np.abs(x1-x2), np.abs(y1-y2) )
+        ax.add_patch(rect)
+
         # Write the data to a file to be read later
         with open(reflector_coordinates_path, 'a') as f:
-            f.write(f"{event.xdata}, {event.ydata}\n")
-
+            f.write(f"{x1}, {y1}\n")
+            f.write(f"{x2}, {y2}\n")
+    
+    # Clear the file
     with open(reflector_coordinates_path, 'w') as f:
         f.write("")
 
     fig, ax, cm = plot_calibration_image(config, azimuth_data, reflector_coordinates_path)
-    fig.canvas.mpl_connect('button_press_event', onclick)
+    rs = RectangleSelector(ax, line_select_callback,
+                       useblit=True,
+                       button=[1, 3],  # don't use middle button
+                       minspanx=5, minspany=5,
+                       spancoords='pixels',
+                       interactive=True)
     plt.show()
 
-def data_extraction(data_path, gt_positions_path, config_path):
+def get_maximun_points(azimuth_data, reflector_coordinates_path):
+    """
+    Get the maximum points
+    """
+    cnr_ref = np.loadtxt(reflector_coordinates_path, delimiter=",")
+    print(cnr_ref)
+
+def show_maximum_points(azimuth_data, reflector_coordinates_path):
+    """
+    Show the maximum points in the plot
+    """
+    raise NotImplemented 
+
+
+def data_extraction(data_path, gt_positions_path, config_path, reflector_coordinates_path):
     """
     This assumes satic positions of the corner reflectors
     Variables:
@@ -165,9 +190,9 @@ def data_extraction(data_path, gt_positions_path, config_path):
     with open(config_path, 'r') as f:
         config = json.load(f)
 
-    plot_calibration_image(config, data[0]['dataFrame']['azimuth_static'])
     # Write the calibration points to a file
     get_radar_points(config, data[0]['dataFrame']['azimuth_static'], reflector_coordinates_path)
+    max_points = get_maximun_points(data[0]['dataFrame']['azimuth_static'], reflector_coordinates_path)
 
     exit() 
 
