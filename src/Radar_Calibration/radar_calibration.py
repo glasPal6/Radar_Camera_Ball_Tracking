@@ -66,6 +66,7 @@ def radar_Kalman(targets, measurements, noise_m, noise_p=0):
     return A, R, t
 
 def plot_calibration_image(config, azimuth_data):
+def plot_calibration_image(config, azimuth_data, reflector_coordinates_path):
     # Extract config
     tx_azimuth_antennas = config['Azimuth antennas']
     rx_antennas = config['Receive antennas']
@@ -127,6 +128,22 @@ def plot_calibration_image(config, azimuth_data):
     cm.set_array(zi[::-1,::-1])  # rotate 180 degrees
     cm.autoscale()
 
+    return fig, ax, cm
+
+def get_radar_points(config, azimuth_data, reflector_coordinates_path):
+    """
+    Get the corner reflector points
+    """
+    def onclick(event):
+        # Write the data to a file to be read later
+        with open(reflector_coordinates_path, 'a') as f:
+            f.write(f"{event.xdata}, {event.ydata}\n")
+
+    with open(reflector_coordinates_path, 'w') as f:
+        f.write("")
+
+    fig, ax, cm = plot_calibration_image(config, azimuth_data, reflector_coordinates_path)
+    fig.canvas.mpl_connect('button_press_event', onclick)
     plt.show()
 
 def data_extraction(data_path, gt_positions_path, config_path):
@@ -149,6 +166,8 @@ def data_extraction(data_path, gt_positions_path, config_path):
         config = json.load(f)
 
     plot_calibration_image(config, data[0]['dataFrame']['azimuth_static'])
+    # Write the calibration points to a file
+    get_radar_points(config, data[0]['dataFrame']['azimuth_static'], reflector_coordinates_path)
 
     exit() 
 

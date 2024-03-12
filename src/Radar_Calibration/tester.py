@@ -40,7 +40,8 @@ def test_radar_calib():
     data_path = "Calibration_Data/Test_2024_03_11/pymmw_2024-03-11_10-20-03.log"
     gt_path = "Calibration_Data/Test_2024_03_11/"
     config_path = "Calibration_Data/Test_2024_03_11/config_2024-03-11_10-20-06.json"
-    data_extraction(data_path, gt_path, config_path)
+    reflector_path = "Calibration_Data/Test_2024_03_11/reflector_coords_2024-03-11_10-20-06.txt"
+    data_extraction(data_path, gt_path, config_path, reflector_path)
 
 if __name__ == "__main__":
     # test_algorithms()
