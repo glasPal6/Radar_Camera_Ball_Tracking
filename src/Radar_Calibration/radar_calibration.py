@@ -116,19 +116,19 @@ def plot_calibration_image(config, azimuth_data):
     fig = plt.figure(figsize=(6, 6))
     ax = plt.subplot(1, 1, 1)  # rows, cols, idx
     fig.tight_layout()
-    #cm = ax.imshow(((0,)*grid_res,) * grid_res, cmap=plt.cm.jet, extent=[-range_width, +range_width, 0, range_depth], alpha=0.95)
-    cm = ax.imshow(((0,)*grid_res,) * grid_res, cmap=plt.cm.jet, alpha=0.95)
+    # cm = ax.imshow(((0,)*grid_res,) * grid_res, cmap=plt.cm.jet, alpha=0.95)
+    cm = ax.imshow(((0,)*grid_res,) * grid_res, cmap=plt.cm.jet, extent=[-range_width, +range_width, 0, range_depth], alpha=0.95)
                        
     ax.set_title('Azimuth-Range FFT Heatmap [{};{}]'.format(angle_bins, range_bins), fontsize=10)
     ax.set_xlabel('Lateral distance along [m]')
     ax.set_ylabel('Longitudinal distance along [m]')
     
-    #ax.plot([0, 0], [0, range_depth], color='white', linewidth=0.5, linestyle=':', zorder=1)
-    #ax.plot([0, -range_width], [0, range_width], color='white', linewidth=0.5, linestyle=':', zorder=1)
-    #ax.plot([0, +range_width], [0, range_width], color='white', linewidth=0.5, linestyle=':', zorder=1)    
+    ax.plot([0, 0], [0, range_depth], color='white', linewidth=0.5, linestyle=':', zorder=1)
+    ax.plot([0, -range_width], [0, range_width], color='white', linewidth=0.5, linestyle=':', zorder=1)
+    ax.plot([0, +range_width], [0, range_width], color='white', linewidth=0.5, linestyle=':', zorder=1)    
 
-    #ax.set_ylim([0, +range_depth])
-    #ax.set_xlim([-range_width, +range_width])
+    ax.set_ylim([0, +range_depth])
+    ax.set_xlim([-range_width, +range_width])
 
     # draw 45 degree lines
     for i in range(1, int(range_depth)+1):
@@ -143,7 +143,7 @@ def plot_calibration_image(config, azimuth_data):
 
 def get_radar_points(config, azimuth_data, reflector_coordinates_path):
     """
-    Get the corner reflector points
+j    Get the corner reflector points
     """
     def line_select_callback(eclick, erelease):
         'eclick and erelease are the press and release events'
@@ -153,13 +153,16 @@ def get_radar_points(config, azimuth_data, reflector_coordinates_path):
         ax.add_patch(rect)
 
         # Write the data to a file to be read later
-        with open(reflector_coordinates_path, 'a') as f:
-            f.write(f"{x1}, {y1}\n")
-            f.write(f"{x2}, {y2}\n")
+        # with open(reflector_coordinates_path, 'a') as f:
+        #     f.write(f"{x1}, {y1}\n")
+        #     f.write(f"{x2}, {y2}\n")
+            
+        print(f"{x1}, {y1*range_depth}")
+        print(f"{x2}, {y2*range_depth}\n")
     
     # Clear the file
-    with open(reflector_coordinates_path, 'w') as f:
-        f.write("")
+    # with open(reflector_coordinates_path, 'w') as f:
+    #     f.write("")
 
     # Extract config
     range_bins = config['Range bins'] 
@@ -167,8 +170,17 @@ def get_radar_points(config, azimuth_data, reflector_coordinates_path):
     
     range_depth = range_bins * range_res
     range_width, grid_res = range_depth / 2, 400
+    print(range_bins)
+    print(range_res)
+    print(range_depth)
+    print(range_width)
+    print(grid_res)
 
     fig, ax, cm = plot_calibration_image(config, azimuth_data)
+    ax.scatter(
+        (np.array([176,187,203,222,213]) * range_depth + range_depth) / grid_res - range_width, 
+        (grid_res - 1 - np.array([357,330,350,347,377])) * range_depth / grid_res
+    )
     rs = RectangleSelector(ax, line_select_callback,
                        useblit=True,
                        button=[1, 3],  # don't use middle button
@@ -184,22 +196,13 @@ def get_maximun_points(config, azimuth_data, reflector_coordinates_path):
     # Extract and group the points
     cnr_ref = np.loadtxt(reflector_coordinates_path, delimiter=",").reshape((-1, 2, 2))
     data = extract_azimuth_data(config, azimuth_data)
-    print(np.max(data))
-    print()
 
-    fig, ax, cm = plot_calibration_image(config, azimuth_data)
     # Find the maximun
     for sqr in cnr_ref:
         x1, x2 = int(np.round(sqr[0, 0])), int(np.round(sqr[1, 0]))
         y1, y2 = int(np.round(sqr[0, 1])), int(np.round(sqr[1, 1]))
         max = np.unravel_index(np.argmax(data[y1:y2, x1:x2]), data[y1:y2, x1:x2].shape)
-        ax.scatter([x1,x2,x1+max[1]], [y1,y2,y1+max[0]])
-        print(data[y1, x1])
-        print(data[y2, x2])
-        print(np.max(data[y1:y2, x1:x2]))
-        print(data[y1:y2, x1:x2].shape)
-        print(np.unravel_index(np.argmax(data[y1:y2, x1:x2]), data[y1:y2, x1:x2].shape))
-        print(data[max[0]+y1, max[1]+x1] == np.max(data[y1:y2, x1:x2]))
+        print(max[1]+x1, max[0]+y1)
         print()
     
     plt.show()
@@ -231,8 +234,8 @@ def data_extraction(data_path, gt_positions_path, config_path, reflector_coordin
         config = json.load(f)
 
     # Write the calibration points to a file
-    # get_radar_points(config, np.array(data[0]['dataFrame']['azimuth_static']), reflector_coordinates_path)
-    max_points = get_maximun_points(config, np.array(data[0]['dataFrame']['azimuth_static']), reflector_coordinates_path)
+    get_radar_points(config, np.array(data[0]['dataFrame']['azimuth_static']), reflector_coordinates_path)
+    # max_points = get_maximun_points(config, np.array(data[0]['dataFrame']['azimuth_static']), reflector_coordinates_path)
 
     exit() 
 
