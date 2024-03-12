@@ -153,16 +153,14 @@ j    Get the corner reflector points
         ax.add_patch(rect)
 
         # Write the data to a file to be read later
-        # with open(reflector_coordinates_path, 'a') as f:
-        #     f.write(f"{x1}, {y1}\n")
-        #     f.write(f"{x2}, {y2}\n")
+        with open(reflector_coordinates_path, 'a') as f:
+            f.write(f"{(x1+4)*400/8 - 1}, {400 - 1 - y1*400/8}\n")
+            f.write(f"{(x2+4)*400/8 - 1}, {400 - 1 - y2*400/8}\n")
             
-        print(f"{x1}, {y1*range_depth}")
-        print(f"{x2}, {y2*range_depth}\n")
     
     # Clear the file
-    # with open(reflector_coordinates_path, 'w') as f:
-    #     f.write("")
+    with open(reflector_coordinates_path, 'w') as f:
+        f.write("")
 
     # Extract config
     range_bins = config['Range bins'] 
@@ -170,17 +168,8 @@ j    Get the corner reflector points
     
     range_depth = range_bins * range_res
     range_width, grid_res = range_depth / 2, 400
-    print(range_bins)
-    print(range_res)
-    print(range_depth)
-    print(range_width)
-    print(grid_res)
 
     fig, ax, cm = plot_calibration_image(config, azimuth_data)
-    ax.scatter(
-        (np.array([176,187,203,222,213]) * range_depth + range_depth) / grid_res - range_width, 
-        (grid_res - 1 - np.array([357,330,350,347,377])) * range_depth / grid_res
-    )
     rs = RectangleSelector(ax, line_select_callback,
                        useblit=True,
                        button=[1, 3],  # don't use middle button
@@ -193,19 +182,28 @@ def get_maximun_points(config, azimuth_data, reflector_coordinates_path):
     """
     Get the maximum points
     """
+    # Extract config
+    range_bins = config['Range bins'] 
+    range_res = config['Range resolution (m)'] 
+    
+    range_depth = range_bins * range_res
+    range_width, grid_res = range_depth / 2, 400
+
     # Extract and group the points
     cnr_ref = np.loadtxt(reflector_coordinates_path, delimiter=",").reshape((-1, 2, 2))
     data = extract_azimuth_data(config, azimuth_data)
 
-    # Find the maximun
+    # Find the maximuns
+    max_points = []
     for sqr in cnr_ref:
         x1, x2 = int(np.round(sqr[0, 0])), int(np.round(sqr[1, 0]))
         y1, y2 = int(np.round(sqr[0, 1])), int(np.round(sqr[1, 1]))
-        max = np.unravel_index(np.argmax(data[y1:y2, x1:x2]), data[y1:y2, x1:x2].shape)
-        print(max[1]+x1, max[0]+y1)
-        print()
-    
-    plt.show()
+        max = np.unravel_index(np.argmax(data[y2:y1, x1:x2]), data[y2:y1, x1:x2].shape)
+        x_point = (max[1]+x1 + 1) * range_depth / grid_res - range_width
+        y_point = (grid_res - 1 - (max[0]+y2)) * range_depth / grid_res
+        max_points.append([x_point, y_point])
+
+    return np.array(max_points)
 
 def show_maximum_points(azimuth_data, reflector_coordinates_path):
     """
@@ -235,7 +233,9 @@ def data_extraction(data_path, gt_positions_path, config_path, reflector_coordin
 
     # Write the calibration points to a file
     get_radar_points(config, np.array(data[0]['dataFrame']['azimuth_static']), reflector_coordinates_path)
-    # max_points = get_maximun_points(config, np.array(data[0]['dataFrame']['azimuth_static']), reflector_coordinates_path)
+    max_points = get_maximun_points(config, np.array(data[0]['dataFrame']['azimuth_static']), reflector_coordinates_path)
+    # Transpose to get the correct form
+    print(max_points.T)
 
     exit() 
 
@@ -246,4 +246,3 @@ def data_extraction(data_path, gt_positions_path, config_path, reflector_coordin
         for d in data_raw:
             gt_positions.append([float(i) for i in d.split(",")])
     gt_positions = np.array(gt_positions)
-
