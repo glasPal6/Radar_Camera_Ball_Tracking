@@ -64,6 +64,45 @@ def radar_Kalman(targets, measurements, noise_m, noise_p=0):
     t = A[:2, 2]
     return A, R, t
 
+def extract_azimuth_data(config, azimuth_data):
+    # Extract config
+    tx_azimuth_antennas = config['Azimuth antennas']
+    rx_antennas = config['Receive antennas']
+    range_bins = config['Range bins'] 
+    angle_bins = config['Doppler bins']
+    range_res = config['Range resolution (m)'] 
+    range_bias = config['Range Bias (m)'] if "Range Bias (m)" in config.keys() else 0
+    
+    # define the space
+    t = np.array(range(-angle_bins//2 + 1, angle_bins//2)) * (2 / angle_bins)
+    t = np.arcsin(t)
+    r = np.array(range(range_bins)) * range_res
+
+    range_depth = range_bins * range_res
+    range_width, grid_res = range_depth / 2, 400
+
+    xi = np.linspace(-range_width, range_width, grid_res)
+    yi = np.linspace(0, range_depth, grid_res)
+    xi, yi = np.meshgrid(xi, yi)
+
+    x = np.array([r]).T * np.sin(t)
+    y = np.array([r]).T * np.cos(t)
+    y = y - range_bias
+
+    a = np.copy(azimuth_data)
+    a = np.array([a[i] + 1j * a[i+1] for i in range(0, len(a), 2)])
+    a = np.reshape(a, (range_bins, tx_azimuth_antennas * rx_antennas))
+    a = np.fft.fft(a, angle_bins)
+    a = np.abs(a)
+    a = np.fft.fftshift(a, axes=(1,))  # put left to center, put center to right       
+    a = a[:,1:]  # cut off first angle bin
+      
+    # Interpolate the data
+    zi = spi.griddata((x.ravel(), y.ravel()), a.ravel(), (xi, yi), method='linear')
+    zi = zi[:-1,:-1]
+
+    return zi
+
 def plot_calibration_image(config, azimuth_data, reflector_coordinates_path):
     # Extract config
     tx_azimuth_antennas = config['Azimuth antennas']
