@@ -143,7 +143,7 @@ def plot_calibration_image(config, azimuth_data):
 
 def get_radar_points(config, azimuth_data, reflector_coordinates_path):
     """
-j    Get the corner reflector points
+    Get the corner reflector points
     """
     def line_select_callback(eclick, erelease):
         'eclick and erelease are the press and release events'
@@ -205,13 +205,6 @@ def get_maximun_points(config, azimuth_data, reflector_coordinates_path):
 
     return np.array(max_points)
 
-def show_maximum_points(azimuth_data, reflector_coordinates_path):
-    """
-    Show the maximum points in the plot
-    """
-    raise NotImplemented 
-
-
 def data_extraction(data_path, gt_positions_path, config_path, reflector_coordinates_path):
     """
     This assumes satic positions of the corner reflectors
@@ -233,9 +226,14 @@ def data_extraction(data_path, gt_positions_path, config_path, reflector_coordin
 
     # Write the calibration points to a file
     get_radar_points(config, np.array(data[0]['dataFrame']['azimuth_static']), reflector_coordinates_path)
-    max_points = get_maximun_points(config, np.array(data[0]['dataFrame']['azimuth_static']), reflector_coordinates_path)
-    # Transpose to get the correct form
-    print(max_points.T)
+
+    # Get the max points for each time step
+    max_points = []
+    for i in range(len(data)):
+        print(f"{i} / {len(data)}", end="\r")
+        max_points_i = get_maximun_points(config, np.array(data[i]['dataFrame']['azimuth_static']), reflector_coordinates_path)
+        max_points.append(max_points_i)
+    max_points = np.array(max_points).T
 
     exit() 
 
@@ -246,3 +244,5 @@ def data_extraction(data_path, gt_positions_path, config_path, reflector_coordin
         for d in data_raw:
             gt_positions.append([float(i) for i in d.split(",")])
     gt_positions = np.array(gt_positions)
+
+    # Duplicate the gt positions to match the size of max_points
