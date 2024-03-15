@@ -6,62 +6,50 @@ import matplotlib.patches as pat
 import scipy.interpolate as spi
 
 def radar_LS(targets, measurements):
-    A = targets @ measurements.T @ np.linalg.inv(measurements @ measurements.T)
-    R = A[:2, :2]
-    t = A[:2, 2]
+    """
+    targets = (4, no. of reflectors)
+    measurements = (3, no. of reflectors)
+    noise_n = ()
+    """
+    A = measurements @ targets.T @ np.linalg.inv(targets @ targets.T)
+    R = A[:3, :3]
+    t = A[:3, 3]
+    u, s, vt = np.linalg.svd(R)
+    R = u @ vt
     return A, R, t
 
-def radar_Kalman(targets, measurements, noise_m, noise_p=0):
+def radar_Kalman(targets, measurements, noise_m, noise_p=1E-12):
     """
-        targets = (no. of images in time, 3, no. of reflectors)
-        measurements = (no. of images in time, 3, no. of reflectors)
-        noise_n = ()
+    targets = (no. of images in time, 3, no. of reflectors)
+    measurements = (no. of images in time, 3, no. of reflectors)
+    noise_n = ()
     """
     # Initial estimate of the values
-    _, R, t = radar_LS(targets[0, :, :], measurements[0, :, :])
-    mu = np.array([
-        t[0], t[1],
-        np.mean([
-            np.arccos(R[0, 0]),
-            np.arccos(R[1, 1]),
-            np.arcsin(R[0, 1]),
-            -1*np.arcsin(R[1, 0]),
-        ])
-    ])
-    sigma = noise_p * np.eye(3)
+    A, R, t = radar_LS(targets[0, :, :], measurements[0, :, :])
+    mu = A.flatten()
+    sigma = noise_p * np.eye(12)
 
     for i in range(1, targets.shape[0]):
-        # Prediction step
-        # mu = mu
-        sigma = sigma + noise_p * np.eye(3)
+        for j in range(targets.shape[2]):
+            # Prediction step
+            # mu = mu
+            sigma = sigma + noise_p * np.eye(12)
 
-        # Update step
-        Rs = np.array([
-            [-np.sin(mu[2]), np.cos(mu[2])],
-            [-np.cos(mu[2]), -np.sin(mu[2])],
-        ]) @ measurements[i, :2, :]
-        Hx = np.vstack([np.eye(2) for _ in range(Rs.shape[1])])
-        Rs = Rs.flatten('F')
-        Rs = Rs.reshape((-1, 1))
-        Hx = np.hstack([Hx, Rs])
+            # Update step
+            H = np.array([
+                np.hstack([targets[i, :, j].T, np.zeros(8)]),
+                np.hstack([np.zeros(4), targets[i, :, j].T, np.zeros(4)]),
+                np.hstack([np.zeros(8), targets[i, :, j].T]),
+            ])
+            K = sigma @ H.T @ np.linalg.inv(H @ sigma @ H.T + noise_m * np.diag([1, 1, 0]))
+            sigma = sigma - K @ H @ sigma
+            mu = mu + K @ (measurements[i, :, j] - H @ mu)
 
-        H = np.array([
-            [np.cos(mu[2]), np.sin(mu[2]), mu[0]],
-            [-np.sin(mu[2]), np.cos(mu[2]), mu[1]],
-            [0, 0, 1],
-        ])
-
-        K = sigma @ Hx.T @ np.linalg.inv(Hx @ sigma @ Hx.T + noise_m * np.eye(2*(measurements.shape[2])))
-        sigma = sigma - K @ Hx @ sigma
-        mu = mu + (K @ ((targets[i, :, :] - H @ measurements[i, :, :])[:2, :].flatten('F').reshape((-1, 1)))).flatten()
-
-    A = np.array([
-        [np.cos(mu[2]), np.sin(mu[2]), mu[0]],
-        [-np.sin(mu[2]), np.cos(mu[2]), mu[1]],
-        [0, 0, 1],
-    ])
-    R = A[:2, :2]
-    t = A[:2, 2]
+    A = mu.reshape((3, 4)) 
+    R = A[:3, :3]
+    t = A[:3, 3]
+    u, s, vt = np.linalg.svd(R)
+    R = u @ vt
     return A, R, t
 
 def extract_azimuth_data(config, azimuth_data):
@@ -201,9 +189,9 @@ def get_maximun_points(config, azimuth_data, reflector_coordinates_path):
         max = np.unravel_index(np.argmax(data[y2:y1, x1:x2]), data[y2:y1, x1:x2].shape)
         x_point = (max[1]+x1 + 1) * range_depth / grid_res - range_width
         y_point = (grid_res - 1 - (max[0]+y2)) * range_depth / grid_res
-        max_points.append([x_point, y_point])
+        max_points.append([y_point, x_point])
 
-    return np.array(max_points)
+    return np.array(max_points).T
 
 def data_extraction(data_path, gt_positions_path, config_path, reflector_coordinates_path):
     """
@@ -232,17 +220,19 @@ def data_extraction(data_path, gt_positions_path, config_path, reflector_coordin
     for i in range(len(data)):
         print(f"{i} / {len(data)}", end="\r")
         max_points_i = get_maximun_points(config, np.array(data[i]['dataFrame']['azimuth_static']), reflector_coordinates_path)
+        max_points_i = np.vstack([max_points_i, np.ones((1, max_points_i.shape[1]))])
         max_points.append(max_points_i)
-    max_points = np.array(max_points).T
-
-    exit() 
+    max_points = np.array(max_points)
 
     # Load the ground truth positions
     gt_positions = []
     with open(gt_positions_path, 'r') as f:
         data_raw = f.readlines()
         for d in data_raw:
-            gt_positions.append([float(i) for i in d.split(",")])
-    gt_positions = np.array(gt_positions)
+            gt_positions.append(np.array([float(i) for i in d.split(",")]))
+    gt_positions = np.array(gt_positions).T
+    gt_positions = np.vstack([gt_positions, np.ones((1, gt_positions.shape[1]))])
+    gt_positions = np.array([gt_positions]*len(data))
 
-    # Duplicate the gt positions to match the size of max_points
+    return gt_positions, max_points
+
