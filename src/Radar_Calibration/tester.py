@@ -37,29 +37,17 @@ def test_radar_calib():
     gt_positions, max_points = data_extraction(data_path, gt_path, config_path, reflector_path)
 
     # Estimate the calibration
-    A_estimate = np.zeros((3, 3))
+    A_estimate = np.zeros((3, 4))
     print(A_estimate)
     print()
 
-    i = 2
-    test = A_estimate @ gt_positions[0, :, i]
-    print(test)
-    print(max_points[0, :, i])
-    print(np.linalg.norm(test - max_points[0, :, i]) ** 2)
-
-    # A_estimate, R_estimate, t_estimate = radar_LS_2D(
-    #     np.hstack(max_points), 
-    #     np.hstack(np.delete(gt_positions, 2, axis=1)
-    # ))
-    # print(A_estimate)
-    # print()
-
-    # i = 0
-    # temp = np.delete(gt_positions, 2, axis=1)
-    # test = A_estimate @ temp[0, :, i] 
-    # print(test)
-    # print(max_points[0, :, i])
-    # print(np.linalg.norm(test - max_points[0, :, i]) ** 2)
+    for i in range(gt_positions.shape[2]):
+        test = A_estimate @ gt_positions[0, :, i]
+        test = test[:2]
+        print(max_points[0, :, i])
+        print(test)
+        print(np.linalg.norm(test - max_points[0, :2, i]) ** 2)
+        print()
 
 if __name__ == "__main__":
     # test_algorithms()
