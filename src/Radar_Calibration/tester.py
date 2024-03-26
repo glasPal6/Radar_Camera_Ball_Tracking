@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.spatial.transform import Rotation as R_rot
-from radar_calibration import data_extraction, radar_Kalman, radar_LS 
+from radar_calibration import data_extraction, radar_Kalman, radar_LS, radar_LS_2D 
 
 def test_algorithms():
     alpha = 40
@@ -55,12 +55,25 @@ def test_radar_calib():
     print(A_estimate)
     print()
 
-    i = 0
+    i = 2
     test = A_estimate @ gt_positions[0, :, i]
     print(test)
     print(max_points[0, :, i])
     print(np.linalg.norm(test - max_points[0, :, i]) ** 2)
 
+    # A_estimate, R_estimate, t_estimate = radar_LS_2D(
+    #     np.hstack(max_points), 
+    #     np.hstack(np.delete(gt_positions, 2, axis=1)
+    # ))
+    # print(A_estimate)
+    # print()
+
+    # i = 0
+    # temp = np.delete(gt_positions, 2, axis=1)
+    # test = A_estimate @ temp[0, :, i] 
+    # print(test)
+    # print(max_points[0, :, i])
+    # print(np.linalg.norm(test - max_points[0, :, i]) ** 2)
 
 if __name__ == "__main__":
     # test_algorithms()

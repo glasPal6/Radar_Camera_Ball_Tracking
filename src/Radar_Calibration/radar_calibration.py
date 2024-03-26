@@ -5,6 +5,14 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as pat
 import scipy.interpolate as spi
 
+def radar_LS_2D(targets, measurements):
+    A = targets @ measurements.T @ np.linalg.inv(measurements @ measurements.T)
+    R = A[:2, :2]
+    t = A[:2, 2]
+    u, s, vt = np.linalg.svd(R)
+    R = u @ vt
+    return A, R, t
+
 def radar_LS(targets, measurements):
     """
     targets = (4, no. of reflectors)
@@ -189,6 +197,7 @@ def get_maximun_points(config, azimuth_data, reflector_coordinates_path):
         max = np.unravel_index(np.argmax(data[y2:y1, x1:x2]), data[y2:y1, x1:x2].shape)
         x_point = (max[1]+x1 + 1) * range_depth / grid_res - range_width
         y_point = (grid_res - 1 - (max[0]+y2)) * range_depth / grid_res
+        # Note that the points are swapped around
         max_points.append([y_point, x_point])
 
     return np.array(max_points).T
@@ -213,7 +222,7 @@ def data_extraction(data_path, gt_positions_path, config_path, reflector_coordin
         config = json.load(f)
 
     # Write the calibration points to a file
-    get_radar_points(config, np.array(data[0]['dataFrame']['azimuth_static']), reflector_coordinates_path)
+    # get_radar_points(config, np.array(data[0]['dataFrame']['azimuth_static']), reflector_coordinates_path)
 
     # Get the max points for each time step
     max_points = []
