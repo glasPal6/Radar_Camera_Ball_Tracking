@@ -1,32 +1,46 @@
 import numpy as np
-from numpy.random import beta
-from scipy.spatial.transform import Rotation as R_rot
 from radar_calibration import data_extraction
-from external_calibration import radar_LS
+from external_calibration import trilateration, rotation_least_squares
 
 def test_algorithms():
-    alpha = 40
-    beta = 14
-    gamma = 47
+    from scipy.spatial.transform import Rotation as R_rot
+    np.random.seed(0)
+
+    alpha = 50
+    beta = 39
+    gamma = 67
     r = R_rot.from_euler("xyz", [alpha, beta, gamma], degrees=True)
     r_matrix = r.as_matrix()
-    # print_results(r_matrix, beta, gamma, alpha)
+    # r_matrix = np.eye(3)
 
     t = np.array([10, -8, -3.5])
-    A = np.hstack([r_matrix, t.reshape((-1, 1))])
-    print(A)
-    print()
+    design_matrix = np.hstack([r_matrix, t.reshape((-1, 1))])
 
     cols = 5
-    times = 120
+    times = 2
     targets = np.vstack([np.random.random((3, cols)), np.ones(cols)])
-    x = A @ targets
+    x = design_matrix @ targets
+
+    range_measurements = np.linalg.norm(x, axis=0)
+    azimuth_measurements = np.arctan2(x[1, :], x[0, :])
+    measurements = np.vstack([
+        range_measurements * np.cos(azimuth_measurements), 
+        range_measurements * np.sin(azimuth_measurements),
+    ])
+
     x = np.array([x] * times)
     targets = np.array([targets] * times)
-    noise = 0.01
-    x[:, :2, :] = x[:, :2, :] + np.random.normal(0, noise, (times, 2, cols))
+    measurements = np.array([measurements] * times)
 
+    c_r = trilateration(np.hstack(targets), np.hstack(measurements))
+    R = rotation_least_squares(np.hstack(targets), np.hstack(measurements), c_r)
+    print(r_matrix)
     print()
+    print(R)
+    print()
+    print()
+    print(t)
+    print(-R @ c_r.T)
 
 def test_radar_calib():
     # Data Paths
@@ -39,13 +53,15 @@ def test_radar_calib():
     gt_positions, max_points = data_extraction(data_path, gt_path, config_path, reflector_path)
 
     # Estimate the calibration
-    A_estimate, R_estimate, t_estimate = radar_LS(np.hstack(gt_positions), np.hstack(max_points))
-    print(A_estimate)
-    cos_beta = np.sqrt(R_estimate[0, 0] ** 2 + R_estimate[1, 0] ** 2)
-    beta = np.arccos(cos_beta)
-    alpha = np.arcsin(R_estimate[2, 1] / cos_beta)
-    gamma = np.arccos(R_estimate[0, 0] / cos_beta)
-    print(alpha * 180 / np.pi, beta * 180 / np.pi, gamma * 180 / np.pi)
+    radar_centre = trilateration(np.hstack(gt_positions), np.hstack(max_points))
+    rot_mat = rotation_least_squares(np.hstack(gt_positions), np.hstack(max_points), radar_centre)
+    # u, _, vt = np.linalg.svd(rot_mat)
+    # rot_mat = u @ vt
+    A_estimate = np.hstack([rot_mat, -rot_mat @ radar_centre.T])
+    print(-rot_mat @ radar_centre.T)
+    print()
+    print(rot_mat)
+    print(rot_mat @ rot_mat.T)
     print()
 
     for i in range(gt_positions.shape[2]):

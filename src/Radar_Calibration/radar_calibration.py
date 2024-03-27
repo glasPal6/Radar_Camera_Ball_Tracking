@@ -174,7 +174,7 @@ def data_extraction(data_path, gt_positions_path, config_path, reflector_coordin
     for i in range(len(data)):
         print(f"{i} / {len(data)}", end="\r")
         max_points_i = get_maximun_points(config, np.array(data[i]['dataFrame']['azimuth_static']), reflector_coordinates_path)
-        max_points_i = np.vstack([max_points_i, np.ones((1, max_points_i.shape[1]))])
+        # max_points_i = np.vstack([max_points_i, np.ones((1, max_points_i.shape[1]))])
         max_points.append(max_points_i)
     max_points = np.array(max_points)
 
