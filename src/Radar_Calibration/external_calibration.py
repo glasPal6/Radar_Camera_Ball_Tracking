@@ -1,4 +1,5 @@
 import numpy as np
+from numpy.lib.index_tricks import r_
 
 def radar_LS(targets, measurements):
     """
@@ -46,41 +47,57 @@ def rotation_least_squares(targets, measurements, radar_centre):
     noise_n = ()
     """
     x_diff = targets[:3, :] - radar_centre.T
-    # design_matrix = np.hstack([
-    #     x_diff.T * measurements[], x_diff.T
-    # ])
-    print(design_matrix[0])
+    design_matrix = np.vstack([
+        np.hstack([
+            [x_diff[:, i].T * measurements[1, i] for i in range(x_diff.shape[1])],
+            [x_diff[:, i].T * -measurements[0, i] for i in range(x_diff.shape[1])],
+        ])
+    ])
+    design_matrix = design_matrix.T @ design_matrix
+    w, v = np.linalg.eig(design_matrix)
+    m = np.argmin(w)
+
+    r_row = v[:, m] * -np.sqrt(2)
+    rot_matrix = np.vstack([
+        r_row[:3],
+        r_row[3:],
+        np.cross(r_row[:3], r_row[3:]),
+    ])
+    return rot_matrix
 
 if __name__ == "__main__":
     from scipy.spatial.transform import Rotation as R_rot
     np.random.seed(0)
 
-    alpha = 40
-    beta = 14
-    gamma = 47
+    alpha = 50
+    beta = 39
+    gamma = 67
     r = R_rot.from_euler("xyz", [alpha, beta, gamma], degrees=True)
     r_matrix = r.as_matrix()
     # r_matrix = np.eye(3)
 
     t = np.array([10, -8, -3.5])
-    A = np.hstack([r_matrix, t.reshape((-1, 1))])
+    design_matrix = np.hstack([r_matrix, t.reshape((-1, 1))])
 
     cols = 5
-    times = 1
+    times = 2
     targets = np.vstack([np.random.random((3, cols)), np.ones(cols)])
-    x = A @ targets
+    x = design_matrix @ targets
 
     range_measurements = np.linalg.norm(x, axis=0)
     azimuth_measurements = np.arctan2(x[1, :], x[0, :])
-    mearsurements = np.vstack([
+    measurements = np.vstack([
         range_measurements * np.cos(azimuth_measurements), 
         range_measurements * np.sin(azimuth_measurements),
     ])
 
     x = np.array([x] * times)
     targets = np.array([targets] * times)
-    mearsurements = np.array([mearsurements] * times)
+    measurements = np.array([measurements] * times)
 
-    c_r = trilateration(np.hstack(targets), np.hstack(mearsurements))
-    R = rotation_least_squares(np.hstack(targets), np.hstack(mearsurements), c_r)
+    c_r = trilateration(np.hstack(targets), np.hstack(measurements))
+    R = rotation_least_squares(np.hstack(targets), np.hstack(measurements), c_r)
+    print(r_matrix)
+    print()
+    print(R)
     
