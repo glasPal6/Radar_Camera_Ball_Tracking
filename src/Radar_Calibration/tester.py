@@ -1,6 +1,8 @@
 import numpy as np
+from numpy.random import beta
 from scipy.spatial.transform import Rotation as R_rot
 from radar_calibration import data_extraction
+from external_calibration import radar_LS
 
 def test_algorithms():
     alpha = 40
@@ -37,8 +39,13 @@ def test_radar_calib():
     gt_positions, max_points = data_extraction(data_path, gt_path, config_path, reflector_path)
 
     # Estimate the calibration
-    A_estimate = np.zeros((3, 4))
+    A_estimate, R_estimate, t_estimate = radar_LS(np.hstack(gt_positions), np.hstack(max_points))
     print(A_estimate)
+    cos_beta = np.sqrt(R_estimate[0, 0] ** 2 + R_estimate[1, 0] ** 2)
+    beta = np.arccos(cos_beta)
+    alpha = np.arcsin(R_estimate[2, 1] / cos_beta)
+    gamma = np.arccos(R_estimate[0, 0] / cos_beta)
+    print(alpha * 180 / np.pi, beta * 180 / np.pi, gamma * 180 / np.pi)
     print()
 
     for i in range(gt_positions.shape[2]):
