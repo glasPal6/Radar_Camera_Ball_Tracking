@@ -1,18 +1,4 @@
 import numpy as np
-from numpy.lib.index_tricks import r_
-
-def radar_LS(targets, measurements):
-    """
-    targets = (4, no. of reflectors)
-    measurements = (3, no. of reflectors)
-    noise_n = ()
-    """
-    A = measurements @ targets.T @ np.linalg.inv(targets @ targets.T)
-    R = A[:3, :3]
-    t = A[:3, 3]
-    u, s, vt = np.linalg.svd(R)
-    R = u @ vt
-    return A, R, t
 
 def trilateration(targets, measurements, variances=None):
     """
@@ -57,6 +43,7 @@ def rotation_least_squares(targets, measurements, radar_centre):
     w, v = np.linalg.eig(design_matrix)
     m = np.argmin(w)
 
+    # Required constant so that the properties of R are upheld
     r_row = v[:, m] * -np.sqrt(2)
     rot_matrix = np.vstack([
         r_row[:3],
@@ -100,4 +87,8 @@ if __name__ == "__main__":
     print(r_matrix)
     print()
     print(R)
+    print()
+    print()
+    print(t)
+    print(-R @ c_r.T)
     
