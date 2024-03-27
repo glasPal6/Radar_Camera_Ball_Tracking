@@ -45,8 +45,11 @@ def rotation_least_squares(targets, measurements, radar_centre):
     measurements = (3, no. of reflectors)
     noise_n = ()
     """
-    tan_thetas = np.tan(measurements[1, :] / measurements[0, :])
     x_diff = targets[:3, :] - radar_centre.T
+    # design_matrix = np.hstack([
+    #     x_diff.T * measurements[], x_diff.T
+    # ])
+    print(design_matrix[0])
 
 if __name__ == "__main__":
     from scipy.spatial.transform import Rotation as R_rot
@@ -66,9 +69,18 @@ if __name__ == "__main__":
     times = 1
     targets = np.vstack([np.random.random((3, cols)), np.ones(cols)])
     x = A @ targets
+
+    range_measurements = np.linalg.norm(x, axis=0)
+    azimuth_measurements = np.arctan2(x[1, :], x[0, :])
+    mearsurements = np.vstack([
+        range_measurements * np.cos(azimuth_measurements), 
+        range_measurements * np.sin(azimuth_measurements),
+    ])
+
     x = np.array([x] * times)
     targets = np.array([targets] * times)
+    mearsurements = np.array([mearsurements] * times)
 
-    c_r = trilateration(np.hstack(targets), np.hstack(x))
-    R = rotation_least_squares(np.hstack(targets), np.hstack(x), c_r)
+    c_r = trilateration(np.hstack(targets), np.hstack(mearsurements))
+    R = rotation_least_squares(np.hstack(targets), np.hstack(mearsurements), c_r)
     
