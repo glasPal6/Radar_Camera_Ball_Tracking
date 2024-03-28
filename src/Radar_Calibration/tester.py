@@ -1,79 +1,76 @@
 import numpy as np
-from scipy.spatial.transform import Rotation as R_rot
-from radar_calibration import data_extraction, radar_Kalman, radar_LS, radar_LS_2D 
+from radar_calibration import data_extraction
+from external_calibration import trilateration, rotation_least_squares
 
 def test_algorithms():
-    alpha = 40
-    beta = 14
-    gamma = 47
+    from scipy.spatial.transform import Rotation as R_rot
+    np.random.seed(0)
+
+    alpha = 50
+    beta = 39
+    gamma = 67
     r = R_rot.from_euler("xyz", [alpha, beta, gamma], degrees=True)
     r_matrix = r.as_matrix()
-    # print_results(r_matrix, beta, gamma, alpha)
+    # r_matrix = np.eye(3)
 
     t = np.array([10, -8, -3.5])
-    A = np.hstack([r_matrix, t.reshape((-1, 1))])
-    print(A)
-    print()
+    design_matrix = np.hstack([r_matrix, t.reshape((-1, 1))])
 
     cols = 5
-    times = 120
+    times = 2
     targets = np.vstack([np.random.random((3, cols)), np.ones(cols)])
-    x = A @ targets
+    x = design_matrix @ targets
+
+    range_measurements = np.linalg.norm(x, axis=0)
+    azimuth_measurements = np.arctan2(x[1, :], x[0, :])
+    measurements = np.vstack([
+        range_measurements * np.cos(azimuth_measurements), 
+        range_measurements * np.sin(azimuth_measurements),
+    ])
+
     x = np.array([x] * times)
     targets = np.array([targets] * times)
-    noise = 0.01
-    x[:, :2, :] = x[:, :2, :] + np.random.normal(0, noise, (times, 2, cols))
+    measurements = np.array([measurements] * times)
 
-    A_K, R_K, _ = radar_Kalman(targets, x, noise)
-    print(A_K)
+    c_r = trilateration(np.hstack(targets), np.hstack(measurements))
+    R = rotation_least_squares(np.hstack(targets), np.hstack(measurements), c_r)
+    print(r_matrix)
     print()
-
-    A_LS , R_LS, _ = radar_LS(np.hstack(targets), np.hstack(x))
-    print(A_LS)
+    print(R)
     print()
-
-    print(np.linalg.norm(A - A_K) ** 2)
-    print(np.linalg.norm(A - A_LS) ** 2)
     print()
-    print(np.linalg.norm(r_matrix - R_K) ** 2)
-    print(np.linalg.norm(r_matrix - R_LS) ** 2)
-    print()
+    print(t)
+    print(-R @ c_r.T)
 
 def test_radar_calib():
     # Data Paths
-    data_path = "Calibration_Data/Test_2024_03_14/pymmw_2024-03-14_13-20-03.log"
-    gt_path = "Calibration_Data/Test_2024_03_14/gt_coords.txt"
-    config_path = "Calibration_Data/Test_2024_03_14/config_2024-03-14_13-20-06.json"
-    reflector_path = "Calibration_Data/Test_2024_03_14/reflector_coords_2024-03-11_10-20-06.txt"
+    data_path = "../../../Calibration_Data/Radar_Calibration/Test_2024_03_14/pymmw_2024-03-14_13-20-03.log"
+    gt_path = "../../../Calibration_Data/Radar_Calibration/Test_2024_03_14/ground_truth.txt"
+    config_path = "../../../Calibration_Data/Radar_Calibration/Test_2024_03_14/config_2024-03-14_13-20-06.json"
+    reflector_path = "../../../Calibration_Data/Radar_Calibration/Test_2024_03_14/reflector_coords_2024-03-11_10-20-06.txt"
 
     # Extract data
     gt_positions, max_points = data_extraction(data_path, gt_path, config_path, reflector_path)
 
     # Estimate the calibration
-    A_estimate, R_estimate, t_estimate = radar_LS(np.hstack(gt_positions), np.hstack(max_points))
-    # A_estimate, R_estimate, t_estimate = radar_Kalman(gt_positions, max_points, 0.01)
-    print(A_estimate)
+    radar_centre = trilateration(np.hstack(gt_positions), np.hstack(max_points))
+    rot_mat = rotation_least_squares(np.hstack(gt_positions), np.hstack(max_points), radar_centre)
+    # u, _, vt = np.linalg.svd(rot_mat)
+    # rot_mat = u @ vt
+    A_estimate = np.hstack([rot_mat, -rot_mat @ radar_centre.T])
+    print(-rot_mat @ radar_centre.T)
+    print()
+    print(rot_mat)
+    print(rot_mat @ rot_mat.T)
     print()
 
-    i = 2
-    test = A_estimate @ gt_positions[0, :, i]
-    print(test)
-    print(max_points[0, :, i])
-    print(np.linalg.norm(test - max_points[0, :, i]) ** 2)
-
-    # A_estimate, R_estimate, t_estimate = radar_LS_2D(
-    #     np.hstack(max_points), 
-    #     np.hstack(np.delete(gt_positions, 2, axis=1)
-    # ))
-    # print(A_estimate)
-    # print()
-
-    # i = 0
-    # temp = np.delete(gt_positions, 2, axis=1)
-    # test = A_estimate @ temp[0, :, i] 
-    # print(test)
-    # print(max_points[0, :, i])
-    # print(np.linalg.norm(test - max_points[0, :, i]) ** 2)
+    for i in range(gt_positions.shape[2]):
+        test = A_estimate @ gt_positions[0, :, i]
+        test = test[:2]
+        print(max_points[0, :, i])
+        print(test)
+        print(np.linalg.norm(test - max_points[0, :2, i]) ** 2)
+        print()
 
 if __name__ == "__main__":
     # test_algorithms()

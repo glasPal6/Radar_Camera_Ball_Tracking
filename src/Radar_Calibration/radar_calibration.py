@@ -5,61 +5,6 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as pat
 import scipy.interpolate as spi
 
-def radar_LS_2D(targets, measurements):
-    A = targets @ measurements.T @ np.linalg.inv(measurements @ measurements.T)
-    R = A[:2, :2]
-    t = A[:2, 2]
-    u, s, vt = np.linalg.svd(R)
-    R = u @ vt
-    return A, R, t
-
-def radar_LS(targets, measurements):
-    """
-    targets = (4, no. of reflectors)
-    measurements = (3, no. of reflectors)
-    noise_n = ()
-    """
-    A = measurements @ targets.T @ np.linalg.inv(targets @ targets.T)
-    R = A[:3, :3]
-    t = A[:3, 3]
-    u, s, vt = np.linalg.svd(R)
-    R = u @ vt
-    return A, R, t
-
-def radar_Kalman(targets, measurements, noise_m, noise_p=1E-12):
-    """
-    targets = (no. of images in time, 3, no. of reflectors)
-    measurements = (no. of images in time, 3, no. of reflectors)
-    noise_n = ()
-    """
-    # Initial estimate of the values
-    A, R, t = radar_LS(targets[0, :, :], measurements[0, :, :])
-    mu = A.flatten()
-    sigma = noise_p * np.eye(12)
-
-    for i in range(1, targets.shape[0]):
-        for j in range(targets.shape[2]):
-            # Prediction step
-            # mu = mu
-            sigma = sigma + noise_p * np.eye(12)
-
-            # Update step
-            H = np.array([
-                np.hstack([targets[i, :, j].T, np.zeros(8)]),
-                np.hstack([np.zeros(4), targets[i, :, j].T, np.zeros(4)]),
-                np.hstack([np.zeros(8), targets[i, :, j].T]),
-            ])
-            K = sigma @ H.T @ np.linalg.inv(H @ sigma @ H.T + noise_m * np.diag([1, 1, 0]))
-            sigma = sigma - K @ H @ sigma
-            mu = mu + K @ (measurements[i, :, j] - H @ mu)
-
-    A = mu.reshape((3, 4)) 
-    R = A[:3, :3]
-    t = A[:3, 3]
-    u, s, vt = np.linalg.svd(R)
-    R = u @ vt
-    return A, R, t
-
 def extract_azimuth_data(config, azimuth_data):
     # Extract config
     tx_azimuth_antennas = config['Azimuth antennas']
@@ -229,7 +174,7 @@ def data_extraction(data_path, gt_positions_path, config_path, reflector_coordin
     for i in range(len(data)):
         print(f"{i} / {len(data)}", end="\r")
         max_points_i = get_maximun_points(config, np.array(data[i]['dataFrame']['azimuth_static']), reflector_coordinates_path)
-        max_points_i = np.vstack([max_points_i, np.ones((1, max_points_i.shape[1]))])
+        # max_points_i = np.vstack([max_points_i, np.ones((1, max_points_i.shape[1]))])
         max_points.append(max_points_i)
     max_points = np.array(max_points)
 
